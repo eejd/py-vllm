@@ -139,7 +139,15 @@ def _attach_router(
         res = base(raw_request).create_error_response(message=msg)
         return JSONResponse(content=res.model_dump(), status_code=res.error.code)
 
-    app.include_router(router)
+    # model-hosting-container-standards' bootstrap() applies CUSTOM_FASTAPI_*
+    # handler overrides by finding and removing the routes it replaces (/ping,
+    # /invocations) among `app.router.routes`, matching only APIRoute entries.
+    # Since FastAPI 0.137 include_router() stores a nested _IncludedRouter
+    # instead, so that scan never sees these routes and an override registers
+    # *behind* the original one and is silently ignored. Register the routes
+    # directly on the app's router (the router carries no prefix or
+    # router-level dependencies) so the replacement works on current FastAPI.
+    app.router.routes.extend(router.routes)
 
 
 def sagemaker_standards_bootstrap(app: FastAPI) -> FastAPI:
